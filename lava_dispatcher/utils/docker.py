@@ -33,6 +33,7 @@ class DockerRun:
         self.__environment__ = []
         self.__interactive__ = False
         self.__tty__ = False
+        self.__local__ = False
 
     def name(self, name):
         self.__name__ = name
@@ -96,7 +97,28 @@ class DockerRun:
             run_cmd = action.run_cmd
         else:
             run_cmd = subprocess.check_call
-        run_cmd(["docker", "pull", self.image])
+        # "image" can be a dict or a string
+        image = self.parameters["image"]
+        if isinstance(image, str):
+            self.image_name = image
+            self.__local__ = False
+        else:
+            self.image_name = image["name"]
+            self.__local__ = image.get("local", False)
+        # Pull the image
+        if self.__local__:
+            cmd = [
+                "docker",
+                "image",
+                "inspect",
+                "--format",
+                "image exists",
+                self.image_name,
+            ]
+            error_msg = "Unable to inspect docker image '%s'" % self.image_name
+            self.run_cmd(cmd, error_msg=error_msg)
+        else:
+            run_cmd(["docker", "pull", self.image])
         run_cmd(cmd)
 
     def __check_image_arch__(self):
